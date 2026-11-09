@@ -1,0 +1,16 @@
+<resources>
+    <string name="include_fcm">FCM var</string>
+    <string name="app_list_permission_title">Lütfen sistem ayarlarından uygulama listesini okuma iznini verin</string>
+    <string name="app_list_permission_message">Ya da %1$s/config.json dosyasını doğrudan düzenleyin (yeniden başlatma gerekir)</string>
+    <string name="ok">Tamam</string>
+    <string name="xposed_service_not_connected">XposedService bağlı değil, uzak ayarlar yazılamıyor</string>
+    <string name="config_write_failed">Ayarlar yazılamadı</string>
+    <string name="update_config_failed">Ayarlar güncellenemedi</string>
+    <string name="menu_hide_icon">Başlatıcı simgesini gizle</string>
+    <string name="menu_disable_auto_clean">Uygulama durdurulunca bildirimleri silme</string>
+    <string name="menu_include_icebox">Ice Box ile dondurulmuş uygulamaları uyandır</string>
+    <string name="menu_no_response_notification">Hedef uygulama yanıt vermezse bildirim göster</string>
+    <string name="menu_keep_gms_awake">HyperOS: GMS\'yi dondurma</string>
+    <string name="menu_select_all_fcm">FCM içeren tüm uygulamaları seç</string>
+    <string name="menu_open_diagnostics">FCM Diagnostics\'i aç</string>
+</resources>

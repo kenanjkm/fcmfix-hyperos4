@@ -69,25 +69,33 @@ public class AutoStartFix extends XposedModule {
             // hyperos
             Class<?> BroadcastQueueImpl = XposedHelpers.findClass("com.android.server.am.BroadcastQueueModernStubImpl",classLoader);
             printLog("[fcmfix] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkApplicationAutoStart");
-            XposedUtils.findAndHookMethodAnyParam(BroadcastQueueImpl,"checkApplicationAutoStart", new XC_MethodHook() {
+            // HyperOS 4: boolean checkApplicationAutoStart(BroadcastQueue, BroadcastRecord, ResolveInfo)  (cold start)
+            //           boolean checkReceiverAppDealBroadcast(BroadcastQueue, BroadcastRecord, ProcessRecord, boolean)  (process alive)
+            // Only FCM sent by GMS is let through, so allowed apps are not auto-started by other broadcasts.
+            XC_MethodHook allowFcmFromGms = new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam methodHookParam) {
-                    Intent intent = (Intent) XposedHelpers.getObjectField(methodHookParam.args[1], "intent");
-                    String target = intent.getComponent() == null ? intent.getPackage() : intent.getComponent().getPackageName();
+                    Object record = methodHookParam.args[1];
+                    Intent intent = (Intent) XposedHelpers.getObjectField(record, "intent");
+                    if (intent == null || !isFCMIntent(intent)) {
+                        return;
+                    }
+                    if (!"com.google.android.gms".equals(XposedHelpers.getObjectField(record, "callerPackage"))) {
+                        return;
+                    }
+                    String target = getTargetPackage(intent);
                     if (targetIsAllow(target)) {
-                        // 无日志，先放了
-                        printLog("[" + intent.getAction() + "]checkApplicationAutoStart package_name: " + target, true);
+                        printLog(methodHookParam.method.getName() + " allow FCM: " + target, true);
                         methodHookParam.setResult(true);
-//                        if(isFCMIntent(intent)){
-//                            printLog("checkApplicationAutoStart package_name: " + target, true);
-//                            methodHookParam.setResult(true);
-//                        }else{
-//                            printLog("[skip][" + intent.getAction() + "]checkApplicationAutoStart package_name: " + target, true);
-//                        }
-
                     }
                 }
-            });
+            };
+            XposedUtils.findAndHookMethodAnyParam(BroadcastQueueImpl,"checkApplicationAutoStart", allowFcmFromGms);
+            try {
+                XposedUtils.findAndHookMethodAnyParam(BroadcastQueueImpl,"checkReceiverAppDealBroadcast", allowFcmFromGms);
+            } catch (NoSuchMethodError e) {
+                printLog("No Such Method com.android.server.am.BroadcastQueueModernStubImpl.checkReceiverAppDealBroadcast");
+            }
 
             printLog("[fcmfix] start hook com.android.server.am.BroadcastQueueModernStubImpl.checkReceiverIfRestricted");
             XposedUtils.findAndHookMethodAnyParam(BroadcastQueueImpl,"checkReceiverIfRestricted", new XC_MethodHook() {
@@ -113,17 +121,12 @@ public class AutoStartFix extends XposedModule {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam methodHookParam) {
                     Intent intent = (Intent) methodHookParam.args[1];
-                    String target = intent.getComponent().getPackageName();
-                    if(targetIsAllow(target)) {
-                        // 拿不到action，先放了
+                    String target = getTargetPackage(intent);
+                    // The service intent carries no FCM action, so only allow it during the
+                    // delivery window that a real FCM message from GMS opened (BroadcastFix/GreezeFix).
+                    if (targetIsAllow(target) && inFcmWindow(target)) {
                         printLog("[" + intent.getAction() + "]AutoStartManagerServiceStubImpl.isAllowStartService package_name: " + target, true);
                         methodHookParam.setResult(true);
-//                        if(isFCMIntent(intent)){
-//                            printLog("AutoStartManagerServiceStubImpl.isAllowStartService package_name: " + target, true);
-//                            methodHookParam.setResult(true);
-//                        }else{
-//                            printLog("[skip][" + intent.getAction() + "]AutoStartManagerServiceStubImpl.isAllowStartService package_name: " + target, true);
-//                        }
                     }
                 }
             };

@@ -3,6 +3,7 @@ package com.kooritea.fcmfix;
 import com.kooritea.fcmfix.libxposed.XposedBridge;
 import com.kooritea.fcmfix.xposed.AutoStartFix;
 import com.kooritea.fcmfix.xposed.BroadcastFix;
+import com.kooritea.fcmfix.xposed.GreezeFix;
 import com.kooritea.fcmfix.xposed.KeepNotification;
 import com.kooritea.fcmfix.xposed.MiuiLocalNotificationFix;
 import com.kooritea.fcmfix.xposed.OplusProxyFix;
@@ -31,6 +32,13 @@ public class XposedMain extends io.github.libxposed.api.XposedModule {
 
         XposedBridge.log("[fcmfix] com.android.server.notification.NotificationManagerService");
         new KeepNotification(classLoader);
+
+        XposedBridge.log("[fcmfix] start hook com.miui.server.greeze.GreezeManagerService");
+        try {
+            new GreezeFix(classLoader);
+        } catch (Throwable e) {
+            XposedBridge.log("[fcmfix] GreezeFix failed: " + e);
+        }
 
         XposedBridge.log("[fcmfix] start hook com.android.server.power.OplusProxyWakeLock");
         new OplusProxyFix(classLoader);

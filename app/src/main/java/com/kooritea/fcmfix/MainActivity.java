@@ -106,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
             if (!this.config.has("noResponseNotification")) {
                 this.config.put("noResponseNotification", false);
             }
+            if (!this.config.has("keepGmsAwake")) {
+                this.config.put("keepGmsAwake", true);
+            }
         } catch (JSONException e) {
             Log.e("ensureDefaultConfig", e.toString());
         }
@@ -124,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
             this.config.put("disableAutoCleanNotification", pref.getBoolean("disableAutoCleanNotification", false));
             this.config.put("includeIceBoxDisableApp", pref.getBoolean("includeIceBoxDisableApp", false));
             this.config.put("noResponseNotification", pref.getBoolean("noResponseNotification", false));
+            this.config.put("keepGmsAwake", pref.getBoolean("keepGmsAwake", true));
         } catch (JSONException e) {
             Log.e("loadRemoteConfig", e.toString());
         }
@@ -218,9 +222,9 @@ public class MainActivity extends AppCompatActivity {
             this.mAppList = _allowList;
             if(_allowList.size() == 0 || _allowList.isEmpty() ||(_allowList.size() == 1 && "com.kooritea.fcmfix".equals(_allowList.get(0).packageName))){
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("请在系统设置中授予读取应用列表权限")
-                        .setMessage("或直接编辑" + getApplicationContext().getFilesDir().getAbsolutePath() + "/config.json(需重启生效)")
-                        .setPositiveButton("确定", (dialog, which) -> {})
+                        .setTitle(R.string.app_list_permission_title)
+                        .setMessage(getString(R.string.app_list_permission_message, getApplicationContext().getFilesDir().getAbsolutePath()))
+                        .setPositiveButton(R.string.ok, (dialog, which) -> {})
                         .show();
             }
         }
@@ -307,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             SharedPreferences pref = getRemotePreferencesOrNull();
             if (pref == null) {
-                throw new IllegalStateException("XposedService 未连接，无法写入远程配置");
+                throw new IllegalStateException(getString(R.string.xposed_service_not_connected));
             }
             this.config.put("allowList", new JSONArray(this.allowList));
             boolean saved = pref.edit()
@@ -316,30 +320,41 @@ public class MainActivity extends AppCompatActivity {
                     .putBoolean("disableAutoCleanNotification", this.config.getBoolean("disableAutoCleanNotification"))
                     .putBoolean("includeIceBoxDisableApp", this.config.getBoolean("includeIceBoxDisableApp"))
                     .putBoolean("noResponseNotification", this.config.getBoolean("noResponseNotification"))
+                    .putBoolean("keepGmsAwake", this.config.optBoolean("keepGmsAwake", true))
                     .commit();
             if (!saved) {
-                throw new IllegalStateException("配置写入失败");
+                throw new IllegalStateException(getString(R.string.config_write_failed));
             }
             this.sendBroadcast(new Intent("com.kooritea.fcmfix.update.config"));
         } catch (Throwable e) {
             Log.e("updateConfig",e.toString());
-            new AlertDialog.Builder(this).setTitle("更新配置文件失败").setMessage(e.getMessage()).show();
+            new AlertDialog.Builder(this).setTitle(R.string.update_config_failed).setMessage(e.getMessage()).show();
         }
     }
 
+    private static final int MENU_HIDE_ICON = 1;
+    private static final int MENU_DISABLE_AUTO_CLEAN = 2;
+    private static final int MENU_ICEBOX = 3;
+    private static final int MENU_NO_RESPONSE = 4;
+    private static final int MENU_KEEP_GMS = 5;
+    private static final int MENU_SELECT_FCM = 6;
+    private static final int MENU_DIAGNOSTICS = 7;
+
     @Override
     public boolean onCreateOptionsMenu (Menu menu){
-//      menu.add("隐藏启动器图标").setCheckable(true);
+//      menu.add(Menu.NONE, MENU_HIDE_ICON, Menu.NONE, R.string.menu_hide_icon).setCheckable(true);
 
-        menu.add("阻止应用停止时自动清除通知").setCheckable(true);
+        menu.add(Menu.NONE, MENU_DISABLE_AUTO_CLEAN, Menu.NONE, R.string.menu_disable_auto_clean).setCheckable(true);
 
-        menu.add("允许唤醒被冰箱冻结的应用").setCheckable(true);
+        menu.add(Menu.NONE, MENU_ICEBOX, Menu.NONE, R.string.menu_include_icebox).setCheckable(true);
 
-//        menu.add("目标无响应时代发提示通知").setCheckable(true);
+//        menu.add(Menu.NONE, MENU_NO_RESPONSE, Menu.NONE, R.string.menu_no_response_notification).setCheckable(true);
 
-        menu.add("全选包含 FCM 的应用");
+        menu.add(Menu.NONE, MENU_KEEP_GMS, Menu.NONE, R.string.menu_keep_gms_awake).setCheckable(true);
 
-        menu.add("打开FCM Diagnostics");
+        menu.add(Menu.NONE, MENU_SELECT_FCM, Menu.NONE, R.string.menu_select_all_fcm);
+
+        menu.add(Menu.NONE, MENU_DIAGNOSTICS, Menu.NONE, R.string.menu_open_diagnostics);
         return true;
     }
 
@@ -348,52 +363,46 @@ public class MainActivity extends AppCompatActivity {
     public final boolean onPrepareOptionsMenu(Menu menu) {
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
-            if("隐藏启动器图标".equals(item.getTitle())){
-                PackageManager packageManager = getPackageManager();
-                item.setChecked(packageManager.getComponentEnabledSetting(new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home")) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
-            }
-            if("阻止应用停止时自动清除通知".equals(item.getTitle())){
-                try {
-                    item.setChecked(this.config.getBoolean("disableAutoCleanNotification"));
-                } catch (JSONException e) {
-                    item.setChecked(false);
+            switch (item.getItemId()) {
+                case MENU_HIDE_ICON: {
+                    PackageManager packageManager = getPackageManager();
+                    item.setChecked(packageManager.getComponentEnabledSetting(new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home")) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+                    break;
                 }
-            }
-            if("允许唤醒被冰箱冻结的应用".equals(item.getTitle())){
-                try {
-                    item.setChecked(this.config.getBoolean("includeIceBoxDisableApp"));
-                } catch (JSONException e) {
-                    item.setChecked(false);
-                }
-            }
-            if("目标无响应时代发提示通知".equals(item.getTitle())){
-                try {
-                    item.setChecked(this.config.getBoolean("noResponseNotification"));
-                } catch (JSONException e) {
-                    item.setChecked(false);
-                }
-            }
-            if("全选包含 FCM 的应用".equals(item.getTitle())){
-                item.setOnMenuItemClickListener(menuItem -> {
-                    for(AppInfo appInfo : appListAdapter.mAppList){
-                        if(appInfo.includeFcm){
-                            addAppInAllowList(appInfo.packageName);
-                            appInfo.isAllow = true;
+                case MENU_DISABLE_AUTO_CLEAN:
+                    item.setChecked(this.config.optBoolean("disableAutoCleanNotification", false));
+                    break;
+                case MENU_ICEBOX:
+                    item.setChecked(this.config.optBoolean("includeIceBoxDisableApp", false));
+                    break;
+                case MENU_NO_RESPONSE:
+                    item.setChecked(this.config.optBoolean("noResponseNotification", false));
+                    break;
+                case MENU_KEEP_GMS:
+                    item.setChecked(this.config.optBoolean("keepGmsAwake", true));
+                    break;
+                case MENU_SELECT_FCM:
+                    item.setOnMenuItemClickListener(menuItem -> {
+                        for(AppInfo appInfo : appListAdapter.mAppList){
+                            if(appInfo.includeFcm){
+                                addAppInAllowList(appInfo.packageName);
+                                appInfo.isAllow = true;
+                            }
                         }
-                    }
-                    appListAdapter.notifyDataSetChanged();
-                    return false;
-                });
-            }
-            if("打开FCM Diagnostics".equals(item.getTitle())){
-                item.setOnMenuItemClickListener(menuItem -> {
-                    Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.setPackage("com.google.android.gms");
-                    intent.setComponent(new ComponentName("com.google.android.gms","com.google.android.gms.gcm.GcmDiagnostics"));
-                    startActivity(intent);
-                    return false;
-                });
+                        appListAdapter.notifyDataSetChanged();
+                        return false;
+                    });
+                    break;
+                case MENU_DIAGNOSTICS:
+                    item.setOnMenuItemClickListener(menuItem -> {
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.setPackage("com.google.android.gms");
+                        intent.setComponent(new ComponentName("com.google.android.gms","com.google.android.gms.gcm.GcmDiagnostics"));
+                        startActivity(intent);
+                        return false;
+                    });
+                    break;
             }
         }
         return super.onPrepareOptionsMenu(menu);
@@ -401,33 +410,35 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public final boolean onOptionsItemSelected(MenuItem menuItem) {
-        if(menuItem.getTitle().equals("隐藏启动器图标")){
-            PackageManager packageManager = getPackageManager();
-            packageManager.setComponentEnabledSetting(
-                    new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home"),
-                    menuItem.isChecked() ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP
-            );
-        }
-        if(menuItem.getTitle().equals("阻止应用停止时自动清除通知")){
-            try {
-                this.config.put("disableAutoCleanNotification", !menuItem.isChecked());
-                this.updateConfig();
-            } catch (JSONException e) {
-                Log.e("onOptionsItemSelected",e.toString());
+        String key = null;
+        boolean defaultValue = false;
+        switch (menuItem.getItemId()) {
+            case MENU_HIDE_ICON: {
+                PackageManager packageManager = getPackageManager();
+                packageManager.setComponentEnabledSetting(
+                        new ComponentName("com.kooritea.fcmfix", "com.kooritea.fcmfix.Home"),
+                        menuItem.isChecked() ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                );
+                return true;
             }
+            case MENU_DISABLE_AUTO_CLEAN:
+                key = "disableAutoCleanNotification";
+                break;
+            case MENU_ICEBOX:
+                key = "includeIceBoxDisableApp";
+                break;
+            case MENU_NO_RESPONSE:
+                key = "noResponseNotification";
+                break;
+            case MENU_KEEP_GMS:
+                key = "keepGmsAwake";
+                defaultValue = true;
+                break;
         }
-        if(menuItem.getTitle().equals("允许唤醒被冰箱冻结的应用")){
+        if (key != null) {
             try {
-                this.config.put("includeIceBoxDisableApp", !menuItem.isChecked());
-                this.updateConfig();
-            } catch (JSONException e) {
-                Log.e("onOptionsItemSelected",e.toString());
-            }
-        }
-        if(menuItem.getTitle().equals("目标无响应时代发提示通知")){
-            try {
-                this.config.put("noResponseNotification", !menuItem.isChecked());
+                this.config.put(key, !this.config.optBoolean(key, defaultValue));
                 this.updateConfig();
             } catch (JSONException e) {
                 Log.e("onOptionsItemSelected",e.toString());

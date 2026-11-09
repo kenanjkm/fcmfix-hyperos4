@@ -16,15 +16,25 @@ public class PowerkeeperFix extends XposedModule {
         this.startHook();
     }
 
+    // Each part is independent: HyperOS 4 PowerKeeper no longer has the millet package
+    // (MilletConfig / MilletPolicy), and a missing class must not stop the other hooks.
     protected void startHook(){
         try {
-
             Class<?> MilletConfig = XposedHelpers.findClassIfExists("com.miui.powerkeeper.millet.MilletConfig", classLoader);
-            XposedHelpers.setStaticBooleanField(MilletConfig, "isGlobal", true);
-            printLog("Set com.miui.powerkeeper.millet.MilletConfig.isGlobal to true");
+            if (MilletConfig != null) {
+                XposedHelpers.setStaticBooleanField(MilletConfig, "isGlobal", true);
+                printLog("Set com.miui.powerkeeper.millet.MilletConfig.isGlobal to true");
+            } else {
+                printLog("No Such Class com.miui.powerkeeper.millet.MilletConfig");
+            }
+        } catch (Throwable e) {
+            printLog("MilletConfig.isGlobal: " + e);
+        }
 
-            Class<?> Misc = XposedHelpers.findClassIfExists("com.miui.powerkeeper.provider.SimpleSettings.Misc", classLoader);
-            printLog("[fcmfix] start hook com.miui.powerkeeper.provider.SimpleSettings.Misc.getBoolean");
+        try {
+            // Nested class: binary name uses '$'.
+            Class<?> Misc = XposedHelpers.findClass("com.miui.powerkeeper.provider.SimpleSettings$Misc", classLoader);
+            printLog("[fcmfix] start hook com.miui.powerkeeper.provider.SimpleSettings$Misc.getBoolean");
             XposedUtils.findAndHookMethod(Misc, "getBoolean", 3, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam methodHookParam) throws Throwable {
@@ -34,8 +44,16 @@ public class PowerkeeperFix extends XposedModule {
                     }
                 }
             });
+        } catch (Throwable e) {
+            printLog("No Such Method com.miui.powerkeeper.provider.SimpleSettings$Misc.getBoolean: " + e);
+        }
 
+        try {
             Class<?> MilletPolicy = XposedHelpers.findClassIfExists("com.miui.powerkeeper.millet.MilletPolicy", classLoader);
+            if (MilletPolicy == null) {
+                printLog("No Such Class com.miui.powerkeeper.millet.MilletPolicy");
+                return;
+            }
 
             XC_MethodHook methodHook = new XC_MethodHook() {
                 protected void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) throws Throwable {
@@ -85,8 +103,8 @@ public class PowerkeeperFix extends XposedModule {
             printLog("[fcmfix] start hook com.miui.powerkeeper.millet.MilletPolicy constructor");
             XposedHelpers.findAndHookConstructor(MilletPolicy, new Object[] {Context.class, methodHook});
 
-        } catch (XposedHelpers.ClassNotFoundError | NoSuchMethodError  e){
-            printLog("No Such Method com.android.server.am.ProcessMemoryCleaner.checkBackgroundAppException");
+        } catch (Throwable e){
+            printLog("No Such Method com.miui.powerkeeper.millet.MilletPolicy.<init>: " + e);
         }
     }
 }

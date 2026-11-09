@@ -1,3 +1,28 @@
+# fcmfix — HyperOS 4 fork
+
+Fork of [kooritea/fcmfix](https://github.com/kooritea/fcmfix) adapted to **HyperOS 4 (Android 17, CN ROM)**.
+Hook targets were checked against HyperOS 4 `services.jar`, `miui-services.jar` and PowerKeeper 4.2.00.
+
+**Türkçe özet:** HyperOS 4'te dondurulmuş (Greeze) veya durdurulmuş uygulamalara FCM bildirimlerinin
+ulaşması için düzenlenmiş sürüm. Arayüz Türkçe / English / 中文.
+
+Changes compared to upstream:
+- **GreezeFix (new):** the MIUI freezer no longer blocks FCM. When GMS sends an FCM message to an allowed
+  app, the app is thawed and gets a 20 s delivery window (receiver + FirebaseMessagingService). Optional
+  (default on): GMS itself is not quick-frozen / network-limited by Greeze when the screen is off.
+- **AutoStartFix:** on HyperOS only FCM sent by GMS bypasses auto-start (upstream let every broadcast and
+  service start of allowed apps through). Added the process-alive path `checkReceiverAppDealBroadcast`.
+- **PowerkeeperFix:** fixed the nested class name (`SimpleSettings$Misc`) and a crash when the `millet`
+  package is missing (HyperOS 4), which stopped all PowerKeeper hooks.
+- **UI:** strings moved to resources; added English and Turkish.
+
+Deep sleep: no wakelocks, alarms or periodic work are added. Thawing only happens in reaction to an FCM
+broadcast GMS is already delivering, and the delivery window just expires.
+
+LSPosed scope: **System Framework** (required). Battery and performance (`com.miui.powerkeeper`) is optional.
+
+---
+
 # fcmfix(Android 10-15 )
 
 [![Android CI](https://github.com/kooritea/fcmfix/workflows/Android%20CI/badge.svg)](https://github.com/kooritea/fcmfix/actions)
