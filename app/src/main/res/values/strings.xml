@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">fcmfix</string>
+    <string name="include_fcm">包含 FCM</string>
+    <string name="app_list_permission_title">请在系统设置中授予读取应用列表权限</string>
+    <string name="app_list_permission_message">或直接编辑%1$s/config.json(需重启生效)</string>
+    <string name="ok">确定</string>
+    <string name="xposed_service_not_connected">XposedService 未连接，无法写入远程配置</string>
+    <string name="config_write_failed">配置写入失败</string>
+    <string name="update_config_failed">更新配置文件失败</string>
+    <string name="menu_hide_icon">隐藏启动器图标</string>
+    <string name="menu_disable_auto_clean">阻止应用停止时自动清除通知</string>
+    <string name="menu_include_icebox">允许唤醒被冰箱冻结的应用</string>
+    <string name="menu_no_response_notification">目标无响应时代发提示通知</string>
+    <string name="menu_keep_gms_awake">HyperOS：阻止冻结 GMS</string>
+    <string name="menu_select_all_fcm">全选包含 FCM 的应用</string>
+    <string name="menu_open_diagnostics">打开FCM Diagnostics</string>
 </resources>

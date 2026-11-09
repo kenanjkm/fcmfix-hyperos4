@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.os.UserManager;
 import android.util.Log;
 
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static android.content.Context.NOTIFICATION_SERVICE;
 
@@ -42,6 +44,17 @@ public abstract class XposedModule {
     private static Boolean isInitReceiver = false;
     public static Boolean isBootComplete = false;
     private static Thread loadConfigThread = null;
+
+    /**
+     * HyperOS: after GMS delivers an FCM message to an allowed app, the app gets a short
+     * "delivery window" in which the MIUI freezer (Greeze) and auto-start checks let it run
+     * (receiver, FirebaseMessagingService start/bind). Nothing is scheduled; the window just
+     * expires. This keeps the bypass tied to a real FCM message instead of allowing the app
+     * to start in the background at any time.
+     */
+    protected static final long FCM_WINDOW_MS = 20000L;
+    private static final ConcurrentHashMap<String, Long> fcmWindowPackages = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, Long> fcmWindowAppIds = new ConcurrentHashMap<>();
 
     protected XposedModule(final ClassLoader classLoader) {
         this.classLoader = classLoader;
@@ -191,6 +204,7 @@ public abstract class XposedModule {
                         config.put("disableAutoCleanNotification", remotePreferences.getBoolean("disableAutoCleanNotification", false));
                         config.put("includeIceBoxDisableApp", remotePreferences.getBoolean("includeIceBoxDisableApp", false));
                         config.put("noResponseNotification", remotePreferences.getBoolean("noResponseNotification", false));
+                        config.put("keepGmsAwake", remotePreferences.getBoolean("keepGmsAwake", true));
                         config.put("init", true);
                     } catch (Throwable e) {
                         printLog("通过现代Xposed API读取配置失败: " + e.getMessage());
@@ -290,6 +304,54 @@ public abstract class XposedModule {
             channel.setDescription("[xposed] fcmfix");
             notificationManager.createNotificationChannel(channel);
         }
+    }
+
+    protected static void openFcmWindow(String packageName, int uid) {
+        long until = SystemClock.elapsedRealtime() + FCM_WINDOW_MS;
+        if (packageName != null) {
+            fcmWindowPackages.put(packageName, until);
+        }
+        if (uid >= 10000) {
+            fcmWindowAppIds.put(uid % 100000, until);
+        }
+    }
+
+    protected static boolean inFcmWindow(String packageName) {
+        if (packageName == null) {
+            return false;
+        }
+        Long until = fcmWindowPackages.get(packageName);
+        if (until == null) {
+            return false;
+        }
+        if (until > SystemClock.elapsedRealtime()) {
+            return true;
+        }
+        fcmWindowPackages.remove(packageName, until);
+        return false;
+    }
+
+    protected static boolean inFcmWindowUid(int uid) {
+        if (uid < 10000) {
+            return false;
+        }
+        Integer appId = uid % 100000;
+        Long until = fcmWindowAppIds.get(appId);
+        if (until == null) {
+            return false;
+        }
+        if (until > SystemClock.elapsedRealtime()) {
+            return true;
+        }
+        fcmWindowAppIds.remove(appId, until);
+        return false;
+    }
+
+    protected static String getTargetPackage(Intent intent) {
+        if (intent == null) {
+            return null;
+        }
+        return intent.getComponent() == null ? intent.getPackage() : intent.getComponent().getPackageName();
     }
 
     protected boolean isFCMAction(String action) {

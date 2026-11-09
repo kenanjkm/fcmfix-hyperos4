@@ -136,6 +136,15 @@ public class BroadcastFix extends XposedModule {
                     return;
                 }
                 Intent intent = (Intent) methodHookParam.args[finalIntent_args_index];
+                // HyperOS: open the FCM delivery window and thaw the target in Greeze for every FCM
+                // message GMS sends to an allowed app (also when the flag below is already set).
+                if (isFCMIntent(intent) && finalIntent_args_index > 1
+                        && "com.google.android.gms".equals(methodHookParam.args[1])) {
+                    String fcmTarget = getTargetPackage(intent);
+                    if (targetIsAllow(fcmTarget)) {
+                        GreezeFix.unfreeze(fcmTarget);
+                    }
+                }
                 // 介入条件：Intent未包含唤醒停止的pkg 且 Intent是FCM
                 if((intent.getFlags() & Intent.FLAG_INCLUDE_STOPPED_PACKAGES) == 0 && isFCMIntent(intent)){
                     String target;

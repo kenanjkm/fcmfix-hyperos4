@@ -1,0 +1,16 @@
+<resources>
+    <string name="include_fcm">Has FCM</string>
+    <string name="app_list_permission_title">Please allow reading the app list in system settings</string>
+    <string name="app_list_permission_message">Or edit %1$s/config.json directly (reboot required)</string>
+    <string name="ok">OK</string>
+    <string name="xposed_service_not_connected">XposedService is not connected, the remote config cannot be written</string>
+    <string name="config_write_failed">Failed to write the config</string>
+    <string name="update_config_failed">Failed to update the config</string>
+    <string name="menu_hide_icon">Hide launcher icon</string>
+    <string name="menu_disable_auto_clean">Keep notifications when an app is stopped</string>
+    <string name="menu_include_icebox">Allow waking apps frozen by Ice Box</string>
+    <string name="menu_no_response_notification">Notify when the target app does not respond</string>
+    <string name="menu_keep_gms_awake">HyperOS: don\'t freeze GMS</string>
+    <string name="menu_select_all_fcm">Select all apps with FCM</string>
+    <string name="menu_open_diagnostics">Open FCM Diagnostics</string>
+</resources>
